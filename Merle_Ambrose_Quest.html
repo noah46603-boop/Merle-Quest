@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Merle Ambrose Quest (Spiral Background + Characters)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --parchment:#f9f4e3;
+      --ink:#2f271a;
+      --frame:#b59b6a;
+    }
+
+    /* Page background: Spiral */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Georgia, serif;
+      display: grid;
+      place-items: center;
+      background: #000 center/cover no-repeat fixed;
+    }
+    body::before{
+      /* The spiral background image gets injected via JS into this pseudo-element */
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+      filter: saturate(1.05) contrast(1.05) brightness(0.95);
+      z-index: -2;
+    }
+    /* Subtle overlay to keep text readable on any background */
+    body::after{
+      content:"";
+      position: fixed;
+      inset:0;
+      background: radial-gradient(ellipse at center,
+                  rgba(0,0,0,.25) 0%,
+                  rgba(0,0,0,.35) 55%,
+                  rgba(0,0,0,.55) 100%);
+      z-index:-1;
+    }
+
+    /* Quest box */
+    .quest-box {
+      background: var(--parchment);
+      border: 3px solid var(--frame);
+      border-radius: 14px;
+      max-width: 760px;
+      width: 92%;
+      box-shadow: 0 16px 40px rgba(0,0,0,.45);
+      padding: 24px;
+      position: relative;
+    }
+    .title {
+      margin: 0 0 10px;
+      text-align: center;
+      letter-spacing: .4px;
+      text-shadow: 0 1px 0 #fff;
+    }
+    .dialogue {
+      line-height: 1.6;
+      font-size: 18px;
+      white-space: pre-wrap;
+    }
+    .controls, .choice {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    select, button {
+      font-size: 16px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 2px solid var(--frame);
+      background: #fffdf6;
+      cursor: pointer;
+    }
+    button.primary { background: #4caf50; color: #fff; border-color: #3a8e40; }
+    button.danger  { background: #d9534f; color: #fff; border-color: #c3423f; }
+    button.icon { display: inline-flex; align-items: center; gap: 8px; }
+    .result {
+      margin-top: 18px;
+      font-weight: bold;
+      text-align: center;
+      min-height: 1.4em;
+    }
+    .hint { text-align: center; margin-top: 10px; font-size: 14px; opacity: .85; }
+
+    /* Character art positions */
+    .character {
+      position: fixed;
+      pointer-events: none; /* clicks go through to page */
+      user-select: none;
+      -webkit-user-drag: none;
+      image-rendering: auto;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.55));
+      opacity: .98;
+    }
+    .merle {
+      bottom: 12px;
+      left: 12px;
+      width: clamp(180px, 20vw, 260px);
+      animation: float1 6.5s ease-in-out infinite;
+      transform-origin: bottom center;
+    }
+    .gamma {
+      top: 22px;
+      right: 26px;
+      width: clamp(90px, 10vw, 140px);
+      animation: float2 5.2s ease-in-out infinite;
+      transform-origin: center;
+    }
+    @keyframes float1 {
+      0%,100% { transform: translateY(0) rotate(-1deg); }
+      50%     { transform: translateY(-6px) rotate(1deg); }
+    }
+    @keyframes float2 {
+      0%,100% { transform: translateY(0) rotate(3deg); }
+      50%     { transform: translateY(-10px) rotate(-2deg); }
+    }
+
+    /* Small screens: tuck characters a bit */
+    @media (max-width: 600px){
+      .merle { width: 160px; opacity: .9; }
+      .gamma { width: 90px; opacity: .9; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Decorative character art -->
+  <img id="merleImg"  class="character merle" alt="Merle Ambrose" aria-hidden="true">
+  <img id="gammaImg"  class="character gamma" alt="Gamma the Owl" aria-hidden="true">
+
+  <div class="quest-box" role="dialog" aria-labelledby="title" aria-modal="false">
+    <h2 id="title" class="title">A Missive from Merle Ambrose</h2>
+
+    <div class="dialogue" id="questText">
+Greetings, young wizards. I have an urgent matter that requires the aid of a courageous soul such as yourself!
+Across the Spiral, darkness stirs in the shadowed realms, and ancient magic long thought lost now awakens once more.
+You will traverse the bustling streets of Marleybone, soar through the skies of Dragonspyre, and uncover the deepest secrets hidden in the crystal caverns of Polaris.
+Along the way, you shall encounter friends to aid you, foes to challenge you, and mysteries that will test your mind and mettle alike.
+So what do you say, young wizard? Will you join in on this EPIC journey across the spiral?
+    </div>
+
+    <div class="controls">
+      <select id="voiceSelect" aria-label="Voice"></select>
+      <button class="icon" id="speakBtn">🔊 Hear Merle</button>
+      <button class="icon" id="pauseBtn">⏸️ Pause</button>
+      <button class="icon" id="resumeBtn">▶️ Resume</button>
+      <button class="icon" id="stopBtn">⏹️ Stop</button>
+    </div>
+
+    <div class="choice">
+      <button class="primary" id="acceptBtn">Yes - Full Speed Ahead</button>
+      <button class="danger"  id="declineBtn">No - Hunger is so heavy</button>
+    </div>
+
+    <div class="result" id="result"></div>
+    <div class="hint">Tip: If the voice list is empty, click the page once, then press “Hear Merle.” Some browsers require user interaction to load voices.</div>
+  </div>
+
+<script>
+/* ============================
+   IMAGE SOURCES
+   ----------------------------
+   Option A (local files):
+     Put spiral.jpg, merle.png, gamma.png next to this HTML.
+
+   Option B (URLs):
+     Paste direct image links below, e.g.
+     spiral: "https://example.com/spiral.jpg"
+============================= */
+const IMAGES = {
+  spiral: "spiral.jpg", // or https://your-url/spiral.jpg
+  merle:  "merle.png",  // or https://your-url/merle.png
+  gamma:  "gamma.png"   // or https://your-url/gamma.png
+};
+
+(function initImages(){
+  const merleImg = document.getElementById('merleImg');
+  const gammaImg = document.getElementById('gammaImg');
+  merleImg.src = IMAGES.merle;
+  gammaImg.src = IMAGES.gamma;
+
+  // Set the spiral background on body::before
+  const setBg = () => {
+    document.body.style.setProperty('--spiral-url', `url("${IMAGES.spiral}")`);
+    // Inject into the stylesheet’s body::before rule
+    const css = document.styleSheets[0];
+    // Find the body::before rule and swap background-image
+    for (const rule of css.cssRules) {
+      if (rule.selectorText === 'body::before') {
+        rule.style.backgroundImage = `url("${IMAGES.spiral}")`;
+        break;
+      }
+    }
+  };
+  setBg();
+})();
+
+/* ============================
+   TEXT-TO-SPEECH (Web Speech)
+============================= */
+(function() {
+  const questEl   = document.getElementById('questText');
+  const voiceSel  = document.getElementById('voiceSelect');
+  const resultEl  = document.getElementById('result');
+  const speakBtn  = document.getElementById('speakBtn');
+  const pauseBtn  = document.getElementById('pauseBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const stopBtn   = document.getElementById('stopBtn');
+  const acceptBtn = document.getElementById('acceptBtn');
+  const declineBtn= document.getElementById('declineBtn');
+
+  const synth = window.speechSynthesis;
+  let voices = [];
+  let currentUtterance = null;
+
+  function loadVoices() {
+    voices = synth.getVoices().sort((a,b)=> a.name.localeCompare(b.name));
+    voiceSel.innerHTML = voices.map((v,i)=> `<option value="${i}">${v.name} (${v.lang})${v.default?' — default':''}</option>`).join('');
+
+    // Pick a "wizardly" voice if possible
+    const preferred = voices.findIndex(v => /en\-GB|en\-AU|en\-IN/.test(v.lang) || /UK|British|Grandfather|Narrator/i.test(v.name));
+    voiceSel.value = preferred >= 0 ? preferred : (voices.findIndex(v=>v.default) ?? 0);
+  }
+  loadVoices();
+  if (typeof speechSynthesis !== "undefined" && speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+  }
+
+  function stopSpeaking() {
+    if (synth.speaking || synth.pending) {
+      synth.cancel();
+      currentUtterance = null;
+    }
+  }
+
+  function speakText(text, rate=0.95, pitch=0.95) {
+    if (!text) return;
+    stopSpeaking();
+    const utter = new SpeechSynthesisUtterance(text);
+    const chosen = voices[parseInt(voiceSel.value,10)];
+    if (chosen) utter.voice = chosen;
+    utter.rate = rate;
+    utter.pitch = pitch;
+    utter.volume = 1.0;
+    utter.onend = () => { currentUtterance = null; };
+    currentUtterance = utter;
+    synth.speak(utter);
+  }
+
+  speakBtn.addEventListener('click', ()=> speakText(questEl.textContent.trim()));
+  pauseBtn.addEventListener('click', ()=> { if (synth.speaking && !synth.paused) synth.pause(); });
+  resumeBtn.addEventListener('click',()=> { if (synth.paused) synth.resume(); });
+  stopBtn.addEventListener('click', stopSpeaking);
+
+  acceptBtn.addEventListener('click', ()=>{
+    const msg = "Splendid! Let us waste no time — the Spiral awaits!";
+    resultEl.textContent = msg;
+    speakText(msg, 1.0, 1.0);
+  });
+  declineBtn.addEventListener('click', ()=>{
+    const msg = "Ah, I see... even the greatest of wizards must eat. Perhaps another time.";
+    resultEl.textContent = msg;
+    speakText(msg, 1.0, 1.0);
+  });
+})();
+</script>
+</body>
+</html>
